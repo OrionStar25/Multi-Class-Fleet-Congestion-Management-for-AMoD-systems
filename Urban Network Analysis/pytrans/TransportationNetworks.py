@@ -122,14 +122,17 @@ class Link(object):
             alpha = self.alpha
 
         try:
-            return (self.t0) * (1 + float(alpha) * (float(flow) / float(self.capacity)) ** float(beta))
+            return (self.t0) * (1 + float(alpha) * pow((float(flow) / float(self.capacity)), float(beta)))
         except:
             print(flow, self.length, self.free_speed, self.capacity, beta)
             raise
+
     def gettotalcost_l(self, flow):
         return float(flow)*self.bpr(flow=flow)
+
     def getmarginalcost_l(self, v):
         return derivative(self.gettotalcost_l, v)
+
     @property
     def t0(self):
         return float(self.length) / float(self.free_speed)
@@ -149,7 +152,7 @@ class Link(object):
         float
             objective function value        
         """
-        return self.t0 * self.flow + self.t0 * self.alpha * math.pow(self.flow, self.beta + 1) / (math.pow(self.capacity, self.beta) * (self.beta + 1))
+        return self.t0 * self.flow + self.t0 * self.alpha * pow(self.flow, self.beta + 1) / (math.pow(self.capacity, self.beta) * (self.beta + 1))
 
     def get_bpr_objective_function(self):
         """
@@ -160,7 +163,7 @@ class Link(object):
         float
             objective function value
         """
-        return self.t0 * self.flow + self.t0 * self.alpha * math.pow(self.flow, self.beta + 1) / (
+        return self.t0 * self.flow + self.t0 * self.alpha * pow(self.flow, self.beta + 1) / (
         math.pow(self.capacity, self.beta) * (self.beta + 1))
 
     def get_total_travel_time_function(self):
@@ -371,19 +374,9 @@ class Network():
         for edge in self.graph.edges(data=True):
             edge[2]['object'].vol = 0
 
-        shortestpath_graph = {}
-        for i in self.origins:
-            try:
-                shortestpath_graph[i] = nx.single_source_dijkstra(self.graph, i, weight="weight")
-            except nx.NodeNotFound: #Node got removed after changing MultiDiGraph to DiGraph
-                continue
-
         for (i, j) in self.od_vols:
             odvol = self.od_vols[(i, j)]
-            try:
-                path = shortestpath_graph[str(i)][1][str(j)]
-            except KeyError: #Node got removed after changing MultiDiGraph to DiGraph
-                continue
+            path = nx.dijkstra_path(self.graph, i, j, weight="weight")
 
             for p in range(len(path) - 1):
                 fnode, tnode = path[p], path[p + 1]

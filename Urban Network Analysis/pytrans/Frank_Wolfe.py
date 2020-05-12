@@ -126,7 +126,7 @@ class Run:
             if iterNum == 1:
                 iteration = True
             else:
-                if abs(self.fwResult['z'][-2] - self.fwResult['z'][-1]) <= 0.001 or iterNum==1000:
+                if abs(self.fwResult['z'][-2] - self.fwResult['z'][-1]) <= 0.001 or iterNum==3000:
                     iteration = False
             
         self.graph = nw.graph
@@ -157,7 +157,7 @@ class Run:
         ta:     float
                 link travel time under the current traffic flow
         """
-        ta = t0*(1+alpha*(xa/ca)**beta)
+        ta = t0 * (1 + alpha * pow((xa/ca), beta))
         return ta
     
     def calculateZ(self, theta):
@@ -203,73 +203,91 @@ class Run:
         return theta.x
 
 
-    def maximum_bottleneck_capacity_path(self, source, target):
+    def shortest_successive_path(self, source, target):
         if target == source:
-            return (0, [target])
+            return [target]
 
-        paths = {source: [source]} # dictionary of paths
+        paths = {source: [source], target: []} # dictionary of paths
         G_succ = self.graph._succ
         push = heappush
         pop = heappop        
-        width = {}  # dictionary of final width
+        dist = {}  # dictionary of final width
         c = count() # use the count c to avoid comparing nodes
         fringe = [] # fringe is heapq with 3-tuples (distance,c,node)
 
         for n in self.graph.nodes:
-            width[n] = float('inf')
-        width[source] = float('-inf')
+            dist[n] = float('inf')
+        dist[source] = 0
         
-        push(fringe, (width[source], next(c), source))
+        push(fringe, (dist[source], next(c), source))
         while fringe:
             (w, _, v) = pop(fringe)
             if v == target:
                 break
 
             for u, e in G_succ[v].items():
-                width_uv = e['capacity']
-                alt = max(-width[u], min(-width[v], width_uv))
+                # Check for only those edges who have enough capacity left
+                if e['capacity'] > 0:
+                    dist_vu = e['weight']
+                    alt = dist[v] + dist_vu
 
-                if alt <= 0:
-                    # print("No path for {} ---> {}: {}".format(source, target, alt))
-                    return (0, [])
+                    if alt < dist[u]:
+                        dist[u] = alt
+                        push(fringe, (dist[u], next(c), u))
+                        paths[u] = paths[v] + [u]
 
-                if alt > -width[u]:
-                    width[u] = -alt
-                    push(fringe, (width[u], next(c), u))
-                    paths[u] = paths[v] + [u]
-
-        return (-width[target], paths[target])
+        return paths[target]
 
     
     def showODFlow(self):
         """
         Method for presenting table of the optimal traffic assignment of the Frank-Wolfe algorithm procedure
         """
-        f = open("../Data/Singapore/Singapore_paths.tntp", 'a')
+        f = open("../Data/SiouxFalls/SiouxFalls_paths.tntp", 'a')
 
         capacity = dict()
         for (u, v, d) in self.graph.edges(data=True):
-            # f.write("{} ----> {}: {}\n".format(u, v, d['object'].vol))
             capacity[(u,v)] = math.ceil(d['object'].vol)
         nx.set_edge_attributes(self.graph, capacity, name='capacity')
 
-        # Decomposing flow into a path for every request
+        # sort OD pairs according to least path options first
+        x = dict()
         for (origin, dest), demand in self.od_vols.items():
             if demand != 0:
-                while demand > 0:
-                    width, path = self.maximum_bottleneck_capacity_path(origin, dest)
+                path = nx.dijkstra_path(self.graph, origin, dest, weight="length")
 
-                    if width == 0: # User equilibrium for CSO
-                        path = nx.dijkstra_path(self.graph, origin, dest, weight='weight')
-                    else:
-                        # Decrement capacity of chosen path by 1
-                        for i in range(len(path)-1):
-                            u = path[i]
-                            v = path[i+1]
-                            self.graph[u][v]['capacity'] = self.graph[u][v]['capacity'] - 1
+                neighbours = 0
+                for p in path[:-1]:
+                    neighbours += len(list(nx.neighbors(self.graph, p)))
 
-                    f.write("{} ---> {}: {}\n".format(origin, dest, path))
-                    demand = demand - 1
+                x[(origin, dest, demand)] = neighbours
+
+        OD = sorted(x.items(), key = lambda kv:(kv[1], kv[0]))
+
+        # Decomposing flow into a path for every request
+        infeasible = dict()
+        for (origin, dest, demand), _ in OD:
+            print(origin, dest)
+            while demand > 0:
+                path = self.shortest_successive_path(origin, dest)
+
+                if path == []: # Add to waiting queue
+                    infeasible[(origin, dest)] = demand
+                    break
+                else:
+                    f.write("{} ----> {}: {}\n".format(origin, dest, path))
+                    # Decrement capacity of chosen path by 1
+                    for i in range(len(path)-1):
+                        u = path[i]
+                        v = path[i+1]
+                        self.graph[u][v]['capacity'] = self.graph[u][v]['capacity'] - 1
+                    demand = demand - 1                   
+
+        # count = 0
+        # for d in infeasible.values():
+        #     count += d
+        # print(count)
+
         f.close()
         print("DONE!")
 
@@ -295,10 +313,10 @@ class Run:
             
 
 if __name__ == "__main__":
-    directory = "../Data/Singapore/"
-    link_file = '{}Singapore_net.tntp'.format(directory)
-    trip_file = '{}Singapore_trips.tntp'.format(directory)
-    node_file = '{}Singapore_node.tntp'.format(directory)
+    directory = "../Data/SiouxFalls/"
+    link_file = '{}SiouxFalls_net.tntp'.format(directory)
+    trip_file = '{}SiouxFalls_trips.tntp'.format(directory)
+    node_file = '{}SiouxFalls_node.tntp'.format(directory)
     SO = True
     
     fw = Run(link_file, trip_file, node_file, SO)
