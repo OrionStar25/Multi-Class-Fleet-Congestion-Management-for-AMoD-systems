@@ -5,6 +5,7 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import math
+import time
 
 import TransportationNetworks as tn
 from networkx.algorithms.flow import edmonds_karp
@@ -92,9 +93,12 @@ class Run:
         ## iterations
         iterNum=0
         iteration = True
+        start = time.time()
+        PERIOD_OF_TIME = 300 # 5min
+
         while iteration:
             iterNum += 1
-            print(iterNum)
+            # print(iterNum)
             nw.all_or_nothing_assignment()
             nw.update_linkcost()
             
@@ -126,8 +130,11 @@ class Run:
             if iterNum == 1:
                 iteration = True
             else:
-                if abs(self.fwResult['z'][-2] - self.fwResult['z'][-1]) <= 0.001 or iterNum==3000:
-                    iteration = False
+                print(iterNum, abs(self.fwResult['z'][-2] - self.fwResult['z'][-1]))
+                if abs(self.fwResult['z'][-2] - self.fwResult['z'][-1]) <= 0.002 or \
+                   iterNum==1000 or \
+                   time.time() > start + PERIOD_OF_TIME:
+                   iteration = False
             
         self.graph = nw.graph
                     
@@ -243,7 +250,7 @@ class Run:
         """
         Method for presenting table of the optimal traffic assignment of the Frank-Wolfe algorithm procedure
         """
-        f = open("../Data/SiouxFalls/SiouxFalls_paths.tntp", 'a')
+        f = open("../Data/Singapore/Singapore_paths.tntp", 'w')
 
         capacity = dict()
         for (u, v, d) in self.graph.edges(data=True):
@@ -267,7 +274,6 @@ class Run:
         # Decomposing flow into a path for every request
         infeasible = dict()
         for (origin, dest, demand), _ in OD:
-            print(origin, dest)
             while demand > 0:
                 path = self.shortest_successive_path(origin, dest)
 
@@ -275,7 +281,8 @@ class Run:
                     infeasible[(origin, dest)] = demand
                     break
                 else:
-                    f.write("{} ----> {}: {}\n".format(origin, dest, path))
+                    f.write("{}:{}:{}\n".format(origin, dest, path))
+
                     # Decrement capacity of chosen path by 1
                     for i in range(len(path)-1):
                         u = path[i]
@@ -283,10 +290,10 @@ class Run:
                         self.graph[u][v]['capacity'] = self.graph[u][v]['capacity'] - 1
                     demand = demand - 1                   
 
-        # count = 0
-        # for d in infeasible.values():
-        #     count += d
-        # print(count)
+        count = 0
+        for d in infeasible.values():
+            count += d
+        print(count)
 
         f.close()
         print("DONE!")
@@ -313,10 +320,10 @@ class Run:
             
 
 if __name__ == "__main__":
-    directory = "../Data/SiouxFalls/"
-    link_file = '{}SiouxFalls_net.tntp'.format(directory)
-    trip_file = '{}SiouxFalls_trips.tntp'.format(directory)
-    node_file = '{}SiouxFalls_node.tntp'.format(directory)
+    directory = "../Data/Singapore/"
+    link_file = '{}Singapore_net.tntp'.format(directory)
+    trip_file = '{}Singapore_trips.tntp'.format(directory)
+    node_file = '{}Singapore_node.tntp'.format(directory)
     SO = True
     
     fw = Run(link_file, trip_file, node_file, SO)
