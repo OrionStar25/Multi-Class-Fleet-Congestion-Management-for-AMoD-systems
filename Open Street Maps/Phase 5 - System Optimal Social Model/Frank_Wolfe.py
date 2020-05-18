@@ -61,7 +61,7 @@ class Run:
     >>> fw.showODFlow()
     >>> fw.showODFlowMap()
     """
-    def __init__(self, link_file, trip_file, node_file, SO):
+    def __init__(self, link_file, trip_file, node_file, SO=True):
 
         """
 
@@ -246,57 +246,71 @@ class Run:
         return paths[target]
 
     
-    def showODFlow(self):
+    def showODPath(self):
         """
         Method for presenting table of the optimal traffic assignment of the Frank-Wolfe algorithm procedure
         """
-        f = open("../Data/Singapore/Singapore_paths.tntp", 'w')
+        # f = open("../data/Singapore_paths.tntp", 'w')
+        # k = open("../data/Singapore_flow.tntp", 'w')
 
         capacity = dict()
         for (u, v, d) in self.graph.edges(data=True):
-            capacity[(u,v)] = math.ceil(d['object'].vol)
-        nx.set_edge_attributes(self.graph, capacity, name='capacity')
+            print(d)
+            break
+            # k.write("{} ----> {}: {}".format(u, v, d['object'].vol))
+            # capacity[(u,v)] = math.ceil(d['object'].vol)
 
-        # sort OD pairs according to least path options first
-        x = dict()
-        for (origin, dest), demand in self.od_vols.items():
-            if demand != 0:
-                path = nx.dijkstra_path(self.graph, origin, dest, weight="length")
+        # k.close()
+        # nx.set_edge_attributes(self.graph, capacity, name='capacity')
 
-                neighbours = 0
-                for p in path[:-1]:
-                    neighbours += len(list(nx.neighbors(self.graph, p)))
+        # # sort OD pairs according to least path options first
+        # x = dict()
+        # for (origin, dest), demand in self.od_vols.items():
+        #     if demand != 0:
+        #         path = nx.dijkstra_path(self.graph, origin, dest, weight="length")
 
-                x[(origin, dest, demand)] = neighbours
+        #         neighbours = 0
+        #         for p in path[:-1]:
+        #             neighbours += len(list(nx.neighbors(self.graph, p)))
 
-        OD = sorted(x.items(), key = lambda kv:(kv[1], kv[0]))
+        #         x[(origin, dest, demand)] = neighbours
 
-        # Decomposing flow into a path for every request
-        infeasible = dict()
-        for (origin, dest, demand), _ in OD:
-            while demand > 0:
-                path = self.shortest_successive_path(origin, dest)
+        # OD = sorted(x.items(), key = lambda kv:(kv[1], kv[0]))
 
-                if path == []: # Add to waiting queue
-                    infeasible[(origin, dest)] = demand
-                    break
-                else:
-                    f.write("{}:{}:{}\n".format(origin, dest, path))
+        # # Decomposing flow into a path for every request
+        # infeasible = dict()
+        # cost = 0
 
-                    # Decrement capacity of chosen path by 1
-                    for i in range(len(path)-1):
-                        u = path[i]
-                        v = path[i+1]
-                        self.graph[u][v]['capacity'] = self.graph[u][v]['capacity'] - 1
-                    demand = demand - 1                   
+        # for (origin, dest, demand), _ in OD:
+        #     while demand > 0:
+        #         path = self.shortest_successive_path(origin, dest)
 
-        count = 0
-        for d in infeasible.values():
-            count += d
-        print(count)
+        #         if path == []: # Add to waiting queue
+        #             infeasible[(origin, dest)] = demand
+        #             break
+        #         else:
+        #             f.write("{}:{}:{}\n".format(origin, dest, path))
 
-        f.close()
-        print("DONE!")
+        #             # Decrement capacity of chosen path by 1
+        #             for i in range(len(path)-1):
+        #                 u = path[i]
+        #                 v = path[i+1]
+        #                 self.graph[u][v]['capacity'] -= 1
+        #                 cost += self.graph[u][v]['weight']
+        #             demand = demand - 1                   
+
+        # count = 0
+        # for d in infeasible.values():
+        #     count += d
+        # print("Number of infeasible trips:", count)
+        # print("Cost of system:", cost)
+
+        # if len(infeasible) > 0:
+        #     capacity = og cap - sys cap + left cap
+        #     do shortest_successive_path for each
+
+        # f.close()
+        # print("DONE!")
 
 
     def showODFlowMap(self):
@@ -317,15 +331,4 @@ class Run:
             nx.draw_networkx_labels(self.graph, pos, font_size=10)
         
             plt.show()
-            
 
-if __name__ == "__main__":
-    directory = "../Data/Singapore/"
-    link_file = '{}Singapore_net.tntp'.format(directory)
-    trip_file = '{}Singapore_trips.tntp'.format(directory)
-    node_file = '{}Singapore_node.tntp'.format(directory)
-    SO = True
-    
-    fw = Run(link_file, trip_file, node_file, SO)
-    fw.showODFlow()
-    # fw.showODFlowMap()

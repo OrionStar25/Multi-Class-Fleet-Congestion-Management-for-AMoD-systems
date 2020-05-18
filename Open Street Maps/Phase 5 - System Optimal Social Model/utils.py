@@ -47,6 +47,7 @@ def process_speed_band(df):
         i += 1
 
     # Process maximum speeds
+
     i = 0
     for x in df['SpeedBand']:
         if x == 0:
@@ -90,10 +91,12 @@ def calculate_congestion(G, edges, speed_bands):
 
     idx = index.Index()
 
-    for (mx, loc) in zip(speed_bands['MaximumSpeed'], speed_bands['Location']):
+    for (mx, loc) in zip(speed_bands['MaximumSpeed'],
+                         speed_bands['Location']):
         idx.insert(int(mx), loc)
 
     # Find intersections
+
     observed_speed = []
 
     for (loc, speed) in zip(Location, edges['maxspeed']):
@@ -107,21 +110,23 @@ def calculate_congestion(G, edges, speed_bands):
     edges['observed_speed'] = observed_speed
 
     # Define capacity for each road link using no. of lanes and speed bands
+
     capacity = []
     n = len(edges['u'])
 
     for i in range(n):
-    	l = float(edges['length'][i])
-    	o = float(edges['observed_speed'][i])
-    	m = float(edges['maxspeed'][i])
-    	k = float(edges['key'][i])
+        l = float(edges['length'][i])
+        o = float(edges['observed_speed'][i])
+        m = float(edges['maxspeed'][i])
+        k = float(edges['key'][i])
 
-    	c = math.ceil(((3*(1+k) * l)/6) * (o/m))
-    	capacity.append(c)
+        c = math.ceil(3 * (1 + k) * l / 6 * (o / m))
+        capacity.append(c)
 
     edges['capacity'] = capacity
-    
+
     # Define BPR heuristic for each road link
+
     bpr = dict()
 
     for i in range(n):
@@ -168,23 +173,32 @@ def haversine_distance(nodes, source, dest):
 
 def get_length_dict(nodes, sources, destinations):
     distances = dict()
-  
-    for source in sources:        
+
+    for source in sources:
         for dest in destinations:
             ed = haversine_distance(nodes, source, dest)
-            distances[source,dest] = ed/13.8889
-       
+            distances[source, dest] = ed / 13.8889
+
     # sort the dictionary in ascending order using distances
-    x = sorted(distances.items(), key = lambda kv:(kv[1], kv[0]))
-    return x  
+
+    x = sorted(distances.items(), key=lambda kv: (kv[1], kv[0]))
+    return x
 
 
-def find_nearest_nodes(nodes, source, dist, idx):
+def find_nearest_nodes(
+    nodes,
+    source,
+    dist,
+    idx,
+    ):
+
     # Create a bounding box around source of min distance in all directions
-    (north, south, east, west) = ox.bbox_from_point(point=source, distance=dist)
-    
+
+    (north, south, east, west) = ox.bbox_from_point(point=source,
+            distance=dist)
+
     candidate_nodes = []
-    initial = list(idx.intersection((west, south, east, north)))   
+    initial = list(idx.intersection((west, south, east, north)))
 
     for node in initial:
         x = haversine_distance(nodes, node, source)
@@ -195,43 +209,86 @@ def find_nearest_nodes(nodes, source, dist, idx):
 
 
 def make_nodes_tntp(nodes):
-	f = open("data/Singapore_node.tntp", 'w')
-	f.write("Node\tX\tY\t;\n")
+    f = open('data/Singapore_node.tntp', 'w')
+    f.write('Node\tX\tY\t;\n')
 
-	for n in nodes.values:
-	    f.write("{}\t{}\t{}\t;\n".format(n[2], n[1], n[0]))
-	f.close()
+    for n in nodes.values:
+        f.write('{}\t{}\t{}\t;\n'.format(n[2], n[1], n[0]))
+    f.close()
 
 
 def make_net_tntp(edges):
-	f = open("data/Singapore_net.tntp", 'w')
-	f.write("<NUMBER OF ZONES> 23219 \n<NUMBER OF NODES> 23219 \n<FIRST THRU NODE> 1 \n<NUMBER OF LINKS> 44612 \n<END OF METADATA> \n\n")
-	f.write("~\tInit node\tTerm node\tCapacity\tLength\tFree Flow Time\tB\tPower\tSpeed limit\tToll\tType\t;\n")
+    f = open('data/Singapore_net.tntp', 'w')
+    f.write('''<NUMBER OF ZONES> 23219 
+<NUMBER OF NODES> 23219 
+<FIRST THRU NODE> 1 
+<NUMBER OF LINKS> 44612 
+<END OF METADATA> 
 
-	for e in edges.values:
-	    f.write("\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t;\n".format(e[0], e[1], e[13], e[8], e[9], 0.15, 4, e[7], 0, 1))
+''')
+    f.write('~\tInit node\tTerm node\tCapacity\tLength\tFree Flow Time\tB\tPower\tSpeed limit\tToll\tType\t;\n'
+            )
 
-	f.close()
+    for e in edges.values:
+        f.write('\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t;\n'.format(
+            e[0],
+            e[1],
+            e[13],
+            e[8],
+            e[9],
+            0.15,
+            4,
+            e[7],
+            0,
+            1,
+            ))
+
+    f.close()
 
 
-def make_trips_tntp(trips):
-	f = open("data/Singapore_trips.tntp", 'w')
-	f.write("<NUMBER OF ZONES> 23219 \n<TOTAL OD FLOW> \n<END OF METADATA> \n\n")
-	demand = 0
-	for u,l in trips.items():
-	    f.write("Origin\t{}\t\n".format(u))
-	    count = 0
-	    
-	    for v in l:
-            d = randint(0,5)
-            f.write("\t\t{} : {};".format(v, d))
-            demand = demand + d
-            
-        count = count + 1
-        if count%5 == 0:
-            f.write("  \n")
-	            
-	    f.write("\n\n")
+def make_trips_tntp(demands):
+    trips = defaultdict(lambda : list())
+    for d in demands:
+        trips[d[0]].append(d[1])
 
-	f.close()
-	print("No. of requests: ", demand)
+    f = open('data/Singapore_trips.tntp', 'w')
+    f.write('''<NUMBER OF ZONES> 23219 
+<TOTAL OD FLOW> 
+<END OF METADATA> 
+
+''')
+    demand = 0
+
+    for (u, l) in trips.items():
+        f.write('Origin\t{}\t\n'.format(u))
+
+        count = 0
+        for v in l:
+            d = randint(1, 10)
+            f.write('\t\t{} : {};'.format(v, d))
+            demand += d
+
+        count += 1
+        if count % 5 == 0:
+            f.write('  \n')
+        f.write('''
+
+''')
+
+    f.close()
+    print ('No. of requests: ', demand)
+
+
+# use pedestrain network only
+
+def print_route(G, route, length):
+    i = 0
+    n = len(route)
+
+    for i in range(n):
+        for (nei, w) in G[route[i]].items():
+            if i + 1 != n:
+                if nei == route[i + 1]:
+                    print (w[0].get('highway'), w[0].get('length'))
+
+    print ('Distance from X/B to A/Y: ', length)  # in metres
