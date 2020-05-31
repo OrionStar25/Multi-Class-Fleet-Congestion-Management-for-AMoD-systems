@@ -363,8 +363,8 @@ def make_nodes_tntp(nodes):
     f.close()
 
 
-def make_net_tntp(edges):
-    f = open('data/Singapore_net.tntp', 'w')
+def make_net_tntp(edges, filename):
+    f = open(filename, 'w')
     f.write('''<NUMBER OF ZONES> 23219 
 <NUMBER OF NODES> 23219 
 <FIRST THRU NODE> 1 
@@ -410,7 +410,7 @@ def make_trips_tntp(demands):
 
         count = 0
         for v in l:
-            d = randint(1, 10)
+            d = randint(2, 3)
             f.write('\t\t{} : {};'.format(v, d))
             demand += d
 
