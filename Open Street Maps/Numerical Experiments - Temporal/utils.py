@@ -255,11 +255,6 @@ def modified_hybrid_search(nodes, x):
     source = min_pair[0][0]
     dest = min_pair[0][1]
     min_tt = float('inf')
-    mhq = 0
-    ht = 0
-    hq = 0
-    mht = 0
-    flag = 0
 
     for i in range(n):
         source_x = nodes[nodes['osmid'] == source]['x'].values[0]
@@ -272,63 +267,41 @@ def modified_hybrid_search(nodes, x):
                 source_y, dest_x, dest_y)
         r = requests.get(url)
         json = r.json()
-
-        if json['code'] == 'Ok':
-            travel_time = json['routes'][0]['weight']
-        else:
-            continue
+        travel_time = json['routes'][0]['weight']
 
         # have reached cutoff and didnt find optimal yet
 
-        if i > cutoff and flag == 0:
-            if travel_time < min_tt:
-                mht = travel_time
-                mhq = i + 1
-                i -= 1
-                flag = 1  # Don't break, instead skip this block forever
-            else:
-                mht = min_tt
-                mhq = i + 1
-                i -= 1
-                flag = 1  # Don't break, instead skip this block forever
-        else:
-
-              # Pure Hybrid
-
+        if i > cutoff:
             if travel_time < min_tt:
                 min_tt = travel_time
+                min_pair = x[i]
+                break
+            else:
+                break
+        else:
+            if travel_time < min_tt:
+                min_tt = travel_time
+                min_pair = x[i]
 
                 if i < n - 1:
                     if travel_time < x[i + 1][1]:
-                        ht = min_tt
-                        hq = i + 1
                         break
                     else:
                         source = x[i + 1][0][0]
                         dest = x[i + 1][0][1]
                 else:
-                    ht = min_tt
-                    hq = i + 1
                     break
             else:
                 if i < n - 1:
                     if min_tt < x[i + 1][1]:
-                        ht = min_tt
-                        hq = i + 1
                         break
                     else:
                         source = x[i + 1][0][0]
                         dest = x[i + 1][0][1]
                 else:
-                    ht = min_tt
-                    hq = i + 1
                     break
 
-    if i <= cutoff:  # Hybrid stopped before cutoff
-        mht = ht
-        mhq = hq
-
-    return (ht, hq, mht, mhq)
+    return min_pair[0]
 
 
 def find_nearest_nodes(
@@ -392,12 +365,12 @@ def make_net_tntp(edges, filename):
     f.close()
 
 
-def make_trips_tntp(demands):
+def make_trips_tntp(demands, filename):
     trips = defaultdict(lambda : list())
     for d in demands:
         trips[d[0]].append(d[1])
 
-    f = open('data/Singapore_trips.tntp', 'w')
+    f = open(filename, 'w')
     f.write('''<NUMBER OF ZONES> 23219 
 <TOTAL OD FLOW> 
 <END OF METADATA> 
@@ -410,7 +383,7 @@ def make_trips_tntp(demands):
 
         count = 0
         for v in l:
-            d = randint(2, 3)
+            d = 5
             f.write('\t\t{} : {};'.format(v, d))
             demand += d
 
