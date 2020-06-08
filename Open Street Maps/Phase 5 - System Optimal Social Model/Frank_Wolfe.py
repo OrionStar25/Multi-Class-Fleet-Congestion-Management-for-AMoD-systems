@@ -246,89 +246,77 @@ class Run:
         return paths[target]
 
     
-    def showODPath(self):
+    def showODPath(self, SO):
         """
         Method for presenting table of the optimal traffic assignment of the Frank-Wolfe algorithm procedure
         """
-        # f = open("../data/Singapore_paths.tntp", 'w')
-        # k = open("../data/Singapore_flow.tntp", 'w')
-
         capacity = dict()
         for (u, v, d) in self.graph.edges(data=True):
-            print(d)
-            break
-            # k.write("{} ----> {}: {}".format(u, v, d['object'].vol))
-            # capacity[(u,v)] = math.ceil(d['object'].vol)
+            capacity[(u,v)] = math.ceil(d['object'].vol)
 
-        # k.close()
-        # nx.set_edge_attributes(self.graph, capacity, name='capacity')
+        nx.set_edge_attributes(self.graph, capacity, name='capacity')
 
-        # # sort OD pairs according to least path options first
-        # x = dict()
-        # for (origin, dest), demand in self.od_vols.items():
-        #     if demand != 0:
-        #         path = nx.dijkstra_path(self.graph, origin, dest, weight="length")
+        # Decomposing flow into a path for every request
+        infeasible = dict()
+        cost = 0
 
-        #         neighbours = 0
-        #         for p in path[:-1]:
-        #             neighbours += len(list(nx.neighbors(self.graph, p)))
+        for (origin, dest), demand in self.od_vols.items():
+            while demand > 0:
+                path = self.shortest_successive_path(origin, dest)
 
-        #         x[(origin, dest, demand)] = neighbours
+                if path == []: # Add to waiting queue
+                    infeasible[(origin, dest)] = demand
+                    break
+                else:
+                    # Decrement capacity of chosen path by 1
+                    for i in range(len(path)-1):
+                        u = path[i]
+                        v = path[i+1]
+                        self.graph[u][v]['capacity'] -= 1
+                        cost += self.graph[u][v]['weight']
+                    demand = demand - 1                   
 
-        # OD = sorted(x.items(), key = lambda kv:(kv[1], kv[0]))
+        # Route infeasible paths in a user equilibrium way
+        if len(infeasible) > 0:
+            new_capacity = dict()
 
-        # # Decomposing flow into a path for every request
-        # infeasible = dict()
-        # cost = 0
+            for (u, v, d) in self.graph.edges(data=True):
+                new_capacity[(u,v)] = d['object'].capacity -\
+                                      math.ceil(d['object'].vol) +\
+                                      d['capacity']
 
-        # for (origin, dest, demand), _ in OD:
-        #     while demand > 0:
-        #         path = self.shortest_successive_path(origin, dest)
-
-        #         if path == []: # Add to waiting queue
-        #             infeasible[(origin, dest)] = demand
-        #             break
-        #         else:
-        #             f.write("{}:{}:{}\n".format(origin, dest, path))
-
-        #             # Decrement capacity of chosen path by 1
-        #             for i in range(len(path)-1):
-        #                 u = path[i]
-        #                 v = path[i+1]
-        #                 self.graph[u][v]['capacity'] -= 1
-        #                 cost += self.graph[u][v]['weight']
-        #             demand = demand - 1                   
-
-        # count = 0
-        # for d in infeasible.values():
-        #     count += d
-        # print("Number of infeasible trips:", count)
-        # print("Cost of system:", cost)
-
-        # if len(infeasible) > 0:
-        #     capacity = og cap - sys cap + left cap
-        #     do shortest_successive_path for each
-
-        # f.close()
-        # print("DONE!")
-
-
-    def showODFlowMap(self):
-        """
-        Method for presenting the traffic assignment result on a map
-        """
-        edgewidth = [d['object'].vol/5000 for (u, v, d) in self.graph.edges(data=True)]
-    
-        if node_file != None:
-            plt.figure(num = 1, figsize=(10,10))
-            plt.axis('off')
+            nx.set_edge_attributes(self.graph, new_capacity, name='capacity')
             
-            pos = nx.get_node_attributes(self.graph, "pos")
-        
-            nx.draw_networkx_edges(self.graph, pos, width=edgewidth, style='solid')
-            nx.draw_networkx_edge_labels(self.graph, pos, edge_labels={(u, v): round(d["object"].vol,0) for u, v, d in self.graph.edges(data=True)}, font_size=8, label_pos=0.3, alpha=0.)
-            nx.draw_networkx_nodes(self.graph, pos, with_labels=True)
-            nx.draw_networkx_labels(self.graph, pos, font_size=10)
-        
-            plt.show()
+            count = 0
+            for (origin, dest), demand in infeasible.items():
+                while demand > 0:
+                    path = self.shortest_successive_path(origin, dest)
 
+                    if path == []: # Add to waiting queue
+                        count += demand
+                        break
+                    else:
+                        # Decrement capacity of chosen path by 1
+                        for i in range(len(path)-1):
+                            u = path[i]
+                            v = path[i+1]
+                            self.graph[u][v]['capacity'] -= 1
+                            cost += self.graph[u][v]['weight']
+                        demand = demand - 1 
+
+            print("Number of infeasible trips:", count)
+            print("Cost of system:", cost)                  
+
+        print("DONE!")
+
+            
+
+if __name__ == "__main__":
+    directory = "../Data/Singapore/"
+    link_file = '{}Singapore_net_off.tntp'.format(directory)
+    trip_file = '{}Singapore_trips_1000.tntp'.format(directory)
+    node_file = '{}Singapore_node.tntp'.format(directory)
+    SO = True
+    
+    fw = Run(link_file, trip_file, node_file, SO)
+    fw.showODPath()
