@@ -124,9 +124,8 @@ class Link(object):
         try:
             return (self.t0) * (1 + float(alpha) * pow((float(flow) / float(self.capacity)), float(beta)))
         except:
-            # print(flow, self.length, self.free_speed, self.capacity, beta)
-            return float('inf')
-            # raise
+            print(flow, self.length, self.free_speed, self.capacity, beta)
+            raise
 
     def gettotalcost_l(self, flow):
         return float(flow)*self.bpr(flow=flow)
@@ -230,7 +229,11 @@ class Network():
         graph = nx.DiGraph()
 
         for l in links:
-            graph.add_edge(l.from_node, l.to_node, object=l, time=l.get_time())
+        	try:
+        		# If capacity = 0 or any other problem, skip edge
+        		graph.add_edge(l.from_node, l.to_node, object=l, time=l.get_time())
+        	except:
+        		continue
 
         if self.node_file != None:
             self.open_node_file(graph)
