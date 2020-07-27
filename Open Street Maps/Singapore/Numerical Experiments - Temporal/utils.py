@@ -213,39 +213,49 @@ def get_length_dict(
     return x
 
 
-def hybrid_search_length(euclidean, real_lengths):
-    n = len(euclidean)
-    min_pair = euclidean[0]
+def hybrid_search(nodes, x):
+    n = len(x)
+    min_pair = x[0]
     source = min_pair[0][0]
     dest = min_pair[0][1]
     min_tt = float('inf')
 
     for i in range(n):
-        travel_time = real_lengths[(source, dest)]
+        source_x = nodes[nodes['osmid'] == source]['x'].values[0]
+        source_y = nodes[nodes['osmid'] == source]['y'].values[0]
+        dest_x = nodes[nodes['osmid'] == dest]['x'].values[0]
+        dest_y = nodes[nodes['osmid'] == dest]['y'].values[0]
+
+        url = \
+            'http://0.0.0.0:5000/route/v1/driving/{},{};{},{}'.format(source_x,
+                source_y, dest_x, dest_y)
+        r = requests.get(url)
+        json = r.json()
+        travel_time = json['routes'][0]['weight']
 
         if travel_time < min_tt:
             min_tt = travel_time
-            min_pair = euclidean[i]
+            min_pair = x[i]
 
             if i < n - 1:
-                if travel_time <= euclidean[i + 1][1]:
+                if travel_time < x[i + 1][1]:
                     break
                 else:
-                    source = euclidean[i + 1][0][0]
-                    dest = euclidean[i + 1][0][1]
+                    source = x[i + 1][0][0]
+                    dest = x[i + 1][0][1]
             else:
                 break
         else:
             if i < n - 1:
-                if min_tt <= euclidean[i + 1][1]:
+                if min_tt < x[i + 1][1]:
                     break
                 else:
-                    source = euclidean[i + 1][0][0]
-                    dest = euclidean[i + 1][0][1]
+                    source = x[i + 1][0][0]
+                    dest = x[i + 1][0][1]
             else:
                 break
 
-    return (min_tt, i + 1)
+    return min_pair[0]
 
 
 def modified_hybrid_search(nodes, x):
